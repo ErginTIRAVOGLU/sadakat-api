@@ -22,3 +22,11 @@ class AuthResponse(BaseSchema):
 
 class CurrentUserResponse(BaseSchema):
     user: UserResponse
+    
+
+class CustomerRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    phone: str | None = Field(default=None, max_length=30)

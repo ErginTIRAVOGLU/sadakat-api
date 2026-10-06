@@ -17,8 +17,10 @@ class UUIDResponse(BaseSchema):
 class TimestampResponse(BaseSchema):
     created_at: datetime
     updated_at: datetime
-    deleted_at: datetime
+
+class SoftDeleteResponse(BaseSchema):
+    deleted_at: datetime | None
 
 
-class BaseResponse(UUIDResponse, TimestampResponse):
+class BaseResponse(UUIDResponse, TimestampResponse, SoftDeleteResponse):
     pass
