@@ -1,0 +1,9 @@
+from enum import Enum
+
+
+class TransactionType(str, Enum):
+    CAMPAIGN_JOINED = "CAMPAIGN_JOINED"
+    STAMP_EARNED = "STAMP_EARNED"
+    REWARD_EARNED = "REWARD_EARNED"
+    REWARD_USED = "REWARD_USED"
+    QR_SCANNED = "QR_SCANNED"

@@ -1,0 +1,15 @@
+from enum import StrEnum
+
+
+class RewardType(StrEnum):
+    FREE_PRODUCT = "FREE_PRODUCT"
+    DISCOUNT_PERCENT = "DISCOUNT_PERCENT"
+    DISCOUNT_AMOUNT = "DISCOUNT_AMOUNT"
+    FREE_SERVICE = "FREE_SERVICE"
+    OTHER = "OTHER"
+    
+class RewardClaimStatus(StrEnum):
+    AVAILABLE = "AVAILABLE"
+    USED = "USED"
+    EXPIRED = "EXPIRED"
+    CANCELLED = "CANCELLED"
