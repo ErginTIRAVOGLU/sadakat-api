@@ -1,11 +1,18 @@
 import uuid
-from typing import TYPE_CHECKING
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Enum as SAEnum
 
 from app.common.enums import BusinessUserRole
 from app.common.models import TimestampMixin, UUIDPrimaryKeyMixin
@@ -17,7 +24,8 @@ if TYPE_CHECKING:
     from app.users.models import User
     from app.qr_sessions.models import QRSession
     from app.stamps.models import Stamp
-    from app.rewards.models import Campaign
+    from app.campaigns.models import Campaign
+    from app.reward_claims.models import RewardClaim
 
 
 class Business(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -97,13 +105,13 @@ class Business(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="business",
         cascade="all, delete-orphan",
     )
-    
+
     campaigns: Mapped[list["Campaign"]] = relationship(
         "Campaign",
         back_populates="business",
         cascade="all, delete-orphan",
     )
-    
+
     transactions: Mapped[list["Transaction"]] = relationship(
         "Transaction",
         back_populates="business",
@@ -114,14 +122,15 @@ class Business(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="business",
     )
 
+
 class BusinessUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "business_users"
 
     business_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey(
-            "businesses.id", 
-            ondelete="CASCADE"
+            "businesses.id",
+            ondelete="CASCADE",
         ),
         nullable=False,
         index=True,
@@ -129,7 +138,10 @@ class BusinessUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
+        ForeignKey(
+            "users.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
@@ -151,9 +163,14 @@ class BusinessUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "User",
         back_populates="business_users",
     )
-    
+
     stamps: Mapped[list["Stamp"]] = relationship(
         "Stamp",
+        back_populates="business_user",
+    )
+
+    reward_claims: Mapped[list["RewardClaim"]] = relationship(
+        "RewardClaim",
         back_populates="business_user",
     )
 

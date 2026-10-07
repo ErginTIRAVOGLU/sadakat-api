@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
@@ -11,37 +13,25 @@ from app.common.models import TimestampMixin, UUIDPrimaryKeyMixin
 from app.core.database import Base
 
 if TYPE_CHECKING:
-    from app.campaign_memberships.models import CampaignMembership
-    from app.rewards.models import Reward
-    from app.users.models import CustomerProfile
+    from app.businesses.models import BusinessUser
+    from app.customer_rewards.models import CustomerReward
 
 
-class RewardClaim(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+class RewardClaim(
+    UUIDPrimaryKeyMixin,
+    TimestampMixin,
+    Base,
+):
     __tablename__ = "reward_claims"
 
-    reward_id: Mapped[UUID] = mapped_column(
-        ForeignKey(
-            "rewards.id",
-            ondelete="RESTRICT",
-        ),
+    customer_reward_id: Mapped[UUID] = mapped_column(
+        ForeignKey("customer_rewards.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
 
-    customer_id: Mapped[UUID] = mapped_column(
-        ForeignKey(
-            "customer_profiles.id",
-            ondelete="RESTRICT",
-        ),
-        nullable=False,
-        index=True,
-    )
-
-    campaign_membership_id: Mapped[UUID] = mapped_column(
-        ForeignKey(
-            "campaign_memberships.id",
-            ondelete="RESTRICT",
-        ),
+    business_user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("business_users.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
@@ -50,9 +40,12 @@ class RewardClaim(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         SAEnum(
             RewardClaimStatus,
             name="reward_claim_status",
+            values_callable=lambda enum_class: [
+                item.value for item in enum_class
+            ],
         ),
         nullable=False,
-        default=RewardClaimStatus.AVAILABLE,
+        default=RewardClaimStatus.USED,
     )
 
     claimed_at: Mapped[datetime] = mapped_column(
@@ -60,27 +53,12 @@ class RewardClaim(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
     )
 
-    used_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
-
-    expires_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True),
-        nullable=True,
-    )
-
-    reward: Mapped["Reward"] = relationship(
-        "Reward",
+    customer_reward: Mapped["CustomerReward"] = relationship(
+        "CustomerReward",
         back_populates="reward_claims",
     )
 
-    customer: Mapped["CustomerProfile"] = relationship(
-        "CustomerProfile",
-        back_populates="reward_claims",
-    )
-
-    campaign_membership: Mapped["CampaignMembership"] = relationship(
-        "CampaignMembership",
+    business_user: Mapped["BusinessUser"] = relationship(
+        "BusinessUser",
         back_populates="reward_claims",
     )

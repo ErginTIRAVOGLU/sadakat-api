@@ -1,27 +1,41 @@
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
-
 from sqlalchemy import DateTime, ForeignKey, UniqueConstraint, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import Enum as SAEnum
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import CampaignMembershipStatus
 from app.common.models import UUIDPrimaryKeyMixin, TimestampMixin
 from app.core.database import Base
 
 
-class CampaignMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+if TYPE_CHECKING:
+    from app.loyalty_cards.models import LoyaltyCard
+
+
+class CampaignMembership(
+    UUIDPrimaryKeyMixin,
+    TimestampMixin,
+    Base,
+):
     __tablename__ = "campaign_memberships"
 
     campaign_id: Mapped[UUID] = mapped_column(
-        ForeignKey("campaigns.id", ondelete="CASCADE"),
+        ForeignKey(
+            "campaigns.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
 
     customer_id: Mapped[UUID] = mapped_column(
-        ForeignKey("customer_profiles.id", ondelete="CASCADE"),
+        ForeignKey(
+            "customer_profiles.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
@@ -61,10 +75,11 @@ class CampaignMembership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="membership",
         cascade="all, delete-orphan",
     )
-    
-    reward_claims = relationship(
-        "RewardClaim",
+
+    loyalty_cards: Mapped[list["LoyaltyCard"]] = relationship(
+        "LoyaltyCard",
         back_populates="campaign_membership",
+        cascade="all, delete-orphan",
     )
 
     __table_args__ = (

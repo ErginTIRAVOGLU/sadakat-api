@@ -12,7 +12,6 @@ class RewardClaimCreate(BaseModel):
     customer_id: UUID
     campaign_membership_id: UUID
 
-
 class RewardClaimResponse(BaseResponse):
     reward_id: UUID
     customer_id: UUID
@@ -21,3 +20,10 @@ class RewardClaimResponse(BaseResponse):
     claimed_at: datetime
     used_at: datetime | None
     expires_at: datetime | None
+
+
+class RewardClaimDetailResponse(RewardClaimResponse):
+    reward_name: str
+    reward_description: str | None
+    reward_type: str
+    reward_value: str | None

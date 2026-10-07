@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import TYPE_CHECKING
 from uuid import UUID
 
@@ -7,9 +9,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.common.models import TimestampMixin, UUIDPrimaryKeyMixin
 from app.core.database import Base
 
+
 if TYPE_CHECKING:
     from app.businesses.models import BusinessUser
     from app.campaign_memberships.models import CampaignMembership
+    from app.loyalty_cards.models import LoyaltyCard
     from app.qr_sessions.models import QRSession
 
 
@@ -44,8 +48,22 @@ class Stamp(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         index=True,
     )
 
+    loyalty_card_id: Mapped[UUID] = mapped_column(
+        ForeignKey(
+            "loyalty_cards.id",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+        index=True,
+    )
+
     membership: Mapped["CampaignMembership"] = relationship(
         "CampaignMembership",
+        back_populates="stamps",
+    )
+
+    loyalty_card: Mapped["LoyaltyCard"] = relationship(
+        "LoyaltyCard",
         back_populates="stamps",
     )
 

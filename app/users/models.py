@@ -1,12 +1,11 @@
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING 
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, String, DateTime
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-
-from sqlalchemy import Enum as SAEnum
 
 from app.common.enums import UserRole
 from app.common.models import TimestampMixin, UUIDPrimaryKeyMixin
@@ -17,8 +16,8 @@ if TYPE_CHECKING:
     from app.businesses.models import BusinessUser
     from app.campaign_memberships.models import CampaignMembership
     from app.qr_sessions.models import QRSession
-    from app.reward_claims.models import RewardClaim
     from app.transactions.models import Transaction
+
 
 class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "users"
@@ -74,21 +73,22 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    
+
     transactions: Mapped[list["Transaction"]] = relationship(
         "Transaction",
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    
+
+
 class CustomerProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "customer_profiles"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),        
+        UUID(as_uuid=True),
         ForeignKey(
-            "users.id", 
-            ondelete="CASCADE"
+            "users.id",
+            ondelete="CASCADE",
         ),
         nullable=False,
         unique=True,
@@ -119,7 +119,7 @@ class CustomerProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         "User",
         back_populates="customer_profile",
     )
- 
+
     campaign_memberships: Mapped[list["CampaignMembership"]] = relationship(
         "CampaignMembership",
         back_populates="customer",
@@ -128,10 +128,5 @@ class CustomerProfile(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     qr_sessions: Mapped[list["QRSession"]] = relationship(
         "QRSession",
-        back_populates="customer",
-    )
-
-    reward_claims: Mapped[list["RewardClaim"]] = relationship(
-        "RewardClaim",
         back_populates="customer",
     )

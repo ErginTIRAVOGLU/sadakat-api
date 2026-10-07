@@ -3,17 +3,17 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.common.enums.reward import RewardType
+from app.common.enums import RewardType
 from app.common.models import TimestampMixin, UUIDPrimaryKeyMixin
 from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.campaigns.models import Campaign
-    from app.reward_claims.models import RewardClaim
+    from app.customer_rewards.models import CustomerReward
 
 
 class Reward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -36,11 +36,6 @@ class Reward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(
         Text,
         nullable=True,
-    )
-
-    required_stamps: Mapped[int] = mapped_column(
-        Integer,
-        nullable=False,
     )
 
     reward_type: Mapped[RewardType] = mapped_column(
@@ -68,8 +63,7 @@ class Reward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="rewards",
     )
 
-    reward_claims: Mapped[list["RewardClaim"]] = relationship(
-        "RewardClaim",
+    customer_rewards: Mapped[list["CustomerReward"]] = relationship(
+        "CustomerReward",
         back_populates="reward",
-        cascade="all, delete-orphan",
     )

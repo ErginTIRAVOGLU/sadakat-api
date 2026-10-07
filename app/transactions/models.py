@@ -10,7 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 
-from app.common.enums.transaction import TransactionType
+from app.common.enums import TransactionType
 from app.common.models import UUIDPrimaryKeyMixin, TimestampMixin
 from app.core.database import Base
 
@@ -46,6 +46,9 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         SQLEnum(
             TransactionType,
             name="transaction_type",
+            values_callable=lambda enum_class: [
+                item.value for item in enum_class
+            ],
         ),
         nullable=False,
         index=True,

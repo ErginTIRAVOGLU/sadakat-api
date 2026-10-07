@@ -1,5 +1,3 @@
-# app/models.py
-
 from app.businesses.models import Business, BusinessUser
 from app.campaign_memberships.models import CampaignMembership
 from app.campaigns.models import Campaign

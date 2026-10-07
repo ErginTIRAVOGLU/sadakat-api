@@ -8,8 +8,6 @@ class RewardType(StrEnum):
     FREE_SERVICE = "FREE_SERVICE"
     OTHER = "OTHER"
     
-class RewardClaimStatus(StrEnum):
-    AVAILABLE = "AVAILABLE"
-    USED = "USED"
-    EXPIRED = "EXPIRED"
+class RewardClaimStatus(StrEnum): 
+    USED = "USED" 
     CANCELLED = "CANCELLED"

@@ -12,6 +12,8 @@ from app.auth.router import router as auth_router
 from app.campaigns.router import router as campaign_router
 from app.campaign_memberships.router import router as campaign_memberships_router
 from app.qr_sessions.router import router as qr_sessions_router
+from app.rewards.router import router as rewards_router
+from app.reward_claims.router import router as reward_claims_router
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -49,6 +51,16 @@ app.include_router(
 
 app.include_router(
     qr_sessions_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    rewards_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    reward_claims_router,
     prefix="/api/v1",
 )
 
