@@ -1,5 +1,6 @@
-from app.common.enums import UserRole
+
 from datetime import datetime
+
 from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,8 +11,11 @@ from app.core.security import (
     timezone,
     verify_password,
 )
-from app.users.models import CustomerProfile, User
 
+from app.users.models import CustomerProfile, User
+from app.common.enums import UserRole
+from app.common.enums import BusinessUserRole, UserRole
+from app.businesses.models import Business, BusinessUser
 
 async def authenticate_user(
     db: AsyncSession,
@@ -115,3 +119,80 @@ async def register_customer(
     access_token = create_access_token(user.id)
 
     return user, access_token
+
+async def register_business(
+    db: AsyncSession,
+    email: str,
+    password: str,
+    business_name: str,
+    slug: str,
+    description: str | None,
+    phone: str | None,
+    website: str | None,
+    address: str | None,
+    city: str | None,
+) -> tuple[User, str]:
+    result = await db.execute(
+        select(User).where(User.email == email)
+    )
+    existing_user = result.scalar_one_or_none()
+
+    if existing_user is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists",
+        )
+
+    result = await db.execute(
+        select(Business).where(Business.slug == slug)
+    )
+    existing_business = result.scalar_one_or_none()
+
+    if existing_business is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A business with this slug already exists",
+        )
+
+    user = User(
+        email=email,
+        password_hash=hash_password(password),
+        role=UserRole.BUSINESS,
+        is_active=True,
+        email_verified=False,
+    )
+
+    business = Business(
+        name=business_name,
+        slug=slug,
+        description=description,
+        phone=phone,
+        email=email,
+        website=website,
+        address=address,
+        city=city,
+        is_active=True,
+    )
+
+    business_user = BusinessUser(
+        user=user,
+        business=business,
+        role=BusinessUserRole.OWNER,
+    )
+
+    db.add(user)
+    db.add(business)
+    db.add(business_user)
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    await db.refresh(user)
+
+    access_token = create_access_token(user.id)
+
+    return user, access_token
+

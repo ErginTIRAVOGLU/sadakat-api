@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
+import hashlib
+import secrets
 
 from jose import JWTError, jwt
 from pwdlib import PasswordHash
@@ -58,3 +60,10 @@ def decode_access_token(token: str) -> UUID:
         return UUID(subject)
     except ValueError as exc:
         raise ValueError("Invalid user ID in token") from exc
+
+def generate_qr_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_qr_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()

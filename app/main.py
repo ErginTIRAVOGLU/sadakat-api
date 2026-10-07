@@ -7,7 +7,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import models
+
 from app.auth.router import router as auth_router
+from app.campaigns.router import router as campaign_router
+from app.campaign_memberships.router import router as campaign_memberships_router
+from app.qr_sessions.router import router as qr_sessions_router
+
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.redis import get_redis
@@ -29,6 +34,21 @@ app.mount(
 
 app.include_router(
     auth_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    campaign_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    campaign_memberships_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    qr_sessions_router,
     prefix="/api/v1",
 )
 

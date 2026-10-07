@@ -7,7 +7,6 @@ from app.common.schemas import BaseResponse
 
 
 class CampaignCreate(BaseModel):
-    business_id: UUID
     name: str = Field(min_length=1, max_length=150)
     description: str | None = None
     image_url: str | None = None

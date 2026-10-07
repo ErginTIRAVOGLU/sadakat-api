@@ -30,3 +30,16 @@ class CustomerRegisterRequest(BaseModel):
     first_name: str = Field(min_length=1, max_length=100)
     last_name: str = Field(min_length=1, max_length=100)
     phone: str | None = Field(default=None, max_length=30)
+
+class BusinessRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+
+    business_name: str = Field(min_length=1, max_length=150)
+    slug: str = Field(min_length=1, max_length=180)
+
+    description: str | None = None
+    phone: str | None = Field(default=None, max_length=30)
+    website: str | None = Field(default=None, max_length=500)
+    address: str | None = None
+    city: str | None = Field(default=None, max_length=100)
