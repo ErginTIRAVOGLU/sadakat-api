@@ -7,6 +7,8 @@ from app.rewards.models import Reward
 from app.stamps.models import Stamp
 from app.transactions.models import Transaction
 from app.users.models import CustomerProfile, User
+from app.customer_rewards.models import CustomerReward
+from app.loyalty_cards.models import LoyaltyCard
 
 __all__ = [
     "User",
@@ -20,4 +22,6 @@ __all__ = [
     "RewardClaim",
     "Transaction",
     "QRSession",
+    "CustomerReward",
+    "LoyaltyCard",
 ]

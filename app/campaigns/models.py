@@ -1,7 +1,6 @@
-from datetime import datetime
-from app.businesses.models import TYPE_CHECKING
+from datetime import datetime 
 from uuid import UUID
-
+from typing import TYPE_CHECKING
 
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
@@ -74,8 +73,9 @@ class Campaign(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         cascade="all, delete-orphan",
     )
 
-    rewards: Mapped[list["Reward"]] = relationship(
+    reward: Mapped["Reward | None"] = relationship(
         "Reward",
         back_populates="campaign",
+        uselist=False,
         cascade="all, delete-orphan",
     )

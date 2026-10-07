@@ -25,6 +25,7 @@ class Reward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             ondelete="CASCADE",
         ),
         nullable=False,
+        unique=True,
         index=True,
     )
 
@@ -60,7 +61,7 @@ class Reward(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     campaign: Mapped["Campaign"] = relationship(
         "Campaign",
-        back_populates="rewards",
+        back_populates="reward",
     )
 
     customer_rewards: Mapped[list["CustomerReward"]] = relationship(
