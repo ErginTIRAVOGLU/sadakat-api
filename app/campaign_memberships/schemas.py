@@ -9,11 +9,6 @@ from app.common.schemas import BaseResponse
 
 class CampaignMembershipCreate(BaseModel):
     campaign_id: UUID
-    customer_id: UUID
-
-
-class CampaignMembershipUpdate(BaseModel):
-    status: CampaignMembershipStatus | None = None
 
 
 class CampaignMembershipResponse(BaseResponse):

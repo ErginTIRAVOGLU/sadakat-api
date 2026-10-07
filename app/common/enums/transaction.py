@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class TransactionType(str, Enum):
+class TransactionType(StrEnum):
     CAMPAIGN_JOINED = "CAMPAIGN_JOINED"
     STAMP_EARNED = "STAMP_EARNED"
     REWARD_EARNED = "REWARD_EARNED"

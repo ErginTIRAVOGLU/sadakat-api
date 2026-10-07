@@ -2,12 +2,14 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.businesses.models import BusinessUser
+from app.campaign_memberships.models import CampaignMembership
 from app.campaigns.models import Campaign
 from app.campaigns.schemas import CampaignCreate, CampaignUpdate
+from app.stamps.models import Stamp
 
 
 async def create_campaign(
@@ -48,9 +50,10 @@ async def create_campaign(
 
     return campaign
 
+
 async def get_business_campaigns(
     db: AsyncSession,
-    business_id,
+    business_id: UUID,
 ) -> list[Campaign]:
     result = await db.execute(
         select(Campaign)
@@ -67,16 +70,27 @@ async def get_business_campaigns(
 async def get_active_campaigns(
     db: AsyncSession,
 ) -> list[Campaign]:
+    now = datetime.now(timezone.utc)
+
     result = await db.execute(
         select(Campaign)
         .where(
             Campaign.is_active.is_(True),
             Campaign.deleted_at.is_(None),
+            or_(
+                Campaign.start_date.is_(None),
+                Campaign.start_date <= now,
+            ),
+            or_(
+                Campaign.end_date.is_(None),
+                Campaign.end_date > now,
+            ),
         )
         .order_by(Campaign.created_at.desc())
     )
 
     return list(result.scalars().all())
+
 
 async def get_campaign_by_id(
     db: AsyncSession,
@@ -126,6 +140,40 @@ async def update_campaign(
             detail="End date must be after start date",
         )
 
+    if "stamp_target" in update_data:
+        result = await db.execute(
+            select(Stamp.id)
+            .join(
+                CampaignMembership,
+                Stamp.campaign_membership_id == CampaignMembership.id,
+            )
+            .where(
+                CampaignMembership.campaign_id == campaign.id,
+            )
+            .limit(1)
+        )
+
+        has_stamps = result.scalar_one_or_none() is not None
+
+        if has_stamps:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Stamp target cannot be changed after stamps have been earned",
+            )
+
+    now = datetime.now(timezone.utc)
+
+    campaign_started = (
+        campaign.start_date is None
+        or now >= campaign.start_date
+    )
+
+    if campaign_started and "start_date" in update_data:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Start date cannot be changed after campaign has started",
+        )
+
     for field, value in update_data.items():
         setattr(campaign, field, value)
 
@@ -152,7 +200,8 @@ async def delete_campaign(
     except Exception:
         await db.rollback()
         raise
-    
+
+
 def is_campaign_active(
     campaign: Campaign,
     now: datetime | None = None,

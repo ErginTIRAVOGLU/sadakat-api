@@ -1,18 +1,10 @@
-from typing import Any
+from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.common.enums import TransactionType
 from app.common.schemas import BaseResponse
-
-
-class TransactionCreate(BaseModel):
-    user_id: UUID
-    business_id: UUID | None = None
-    type: TransactionType
-    reference_id: UUID | None = None
-    details: dict[str, Any] | None = None
 
 
 class TransactionResponse(BaseResponse):
@@ -20,4 +12,9 @@ class TransactionResponse(BaseResponse):
     business_id: UUID | None
     type: TransactionType
     reference_id: UUID | None
-    details: dict[str, Any] | None
+    details: dict | None
+
+
+class TransactionListResponse(BaseModel):
+    items: list[TransactionResponse]
+    total: int

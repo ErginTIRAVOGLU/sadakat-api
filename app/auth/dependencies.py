@@ -8,6 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.businesses.models import BusinessUser
 from app.core.database import get_db
@@ -38,7 +39,10 @@ async def get_current_user(
         )
 
     result = await db.execute(
-        select(User).where(
+        select(User)
+        .options(
+            selectinload(User.customer_profile)
+        ).where(
             User.id == user_id,
             User.is_active.is_(True),
         )

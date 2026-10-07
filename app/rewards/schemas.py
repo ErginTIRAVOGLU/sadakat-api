@@ -37,7 +37,6 @@ class RewardResponse(BaseResponse):
     campaign_id: UUID
     name: str
     description: str | None
-    required_stamps: int
     reward_type: RewardType
     reward_value: str | None
     is_active: bool

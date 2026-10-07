@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import (
@@ -37,14 +38,10 @@ async def list_my_reward_claims(
     db: AsyncSession = Depends(get_db),
 ) -> list[RewardClaimDetailResponse]:
     if current_user.role != UserRole.CUSTOMER:
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Customer account required",
         )
-
-    from sqlalchemy import select
 
     result = await db.execute(
         select(CustomerProfile).where(
@@ -55,8 +52,6 @@ async def list_my_reward_claims(
     customer = result.scalar_one_or_none()
 
     if customer is None:
-        from fastapi import HTTPException
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Customer profile not found",
@@ -70,14 +65,15 @@ async def list_my_reward_claims(
     return [
         RewardClaimDetailResponse(
             **RewardClaimResponse.model_validate(claim).model_dump(),
-            reward_name=claim.reward.name,
-            reward_description=claim.reward.description,
-            reward_type=claim.reward.reward_type.value,
-            reward_value=claim.reward.reward_value,
+            reward_name=claim.customer_reward.reward.name,
+            reward_description=claim.customer_reward.reward.description,
+            reward_type=claim.customer_reward.reward.reward_type.value,
+            reward_value=claim.customer_reward.reward.reward_value,
         )
         for claim in claims
     ]
-    
+
+
 @router.get(
     "/{claim_id}",
     response_model=RewardClaimDetailResponse,
@@ -87,9 +83,6 @@ async def get_my_reward_claim(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> RewardClaimDetailResponse:
-    from fastapi import HTTPException
-    from sqlalchemy import select
-
     if current_user.role != UserRole.CUSTOMER:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -118,12 +111,13 @@ async def get_my_reward_claim(
 
     return RewardClaimDetailResponse(
         **RewardClaimResponse.model_validate(claim).model_dump(),
-        reward_name=claim.reward.name,
-        reward_description=claim.reward.description,
-        reward_type=claim.reward.reward_type.value,
-        reward_value=claim.reward.reward_value,
+        reward_name=claim.customer_reward.reward.name,
+        reward_description=claim.customer_reward.reward.description,
+        reward_type=claim.customer_reward.reward.reward_type.value,
+        reward_value=claim.customer_reward.reward.reward_value,
     )
-    
+
+
 @router.post(
     "/{claim_id}/use",
     response_model=RewardClaimResponse,

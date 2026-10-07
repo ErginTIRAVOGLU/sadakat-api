@@ -42,7 +42,6 @@ async def create_reward(
         campaign_id=campaign.id,
         name=data.name,
         description=data.description,
-        required_stamps=data.required_stamps,
         reward_type=data.reward_type,
         reward_value=data.reward_value,
         is_active=True,
@@ -93,7 +92,7 @@ async def get_campaign_rewards(
             Reward.campaign_id == campaign_id,
             Reward.deleted_at.is_(None),
         )
-        .order_by(Reward.required_stamps.asc())
+        .order_by(Reward.created_at.asc())
     )
 
     return list(result.scalars().all())

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -10,185 +8,16 @@ from sqlalchemy.orm import selectinload
 
 from app.businesses.models import BusinessUser
 from app.campaign_memberships.models import CampaignMembership
-from app.common.enums import RewardClaimStatus, TransactionType, CustomerRewardStatus
-
+from app.common.enums import (
+    CustomerRewardStatus,
+    RewardClaimStatus,
+    TransactionType,
+)
 from app.customer_rewards.models import CustomerReward
+from app.loyalty_cards.models import LoyaltyCard
 from app.reward_claims.models import RewardClaim
-from app.rewards.models import Reward
 from app.transactions.models import Transaction
 
- 
-
-
-async def create_reward_claims_for_membership(
-    db: AsyncSession,
-    membership: CampaignMembership,
-    stamp_count: int,
-) -> list[RewardClaim]:
-    result = await db.execute(
-        select(Reward).where(
-            Reward.campaign_id == membership.campaign_id,
-            Reward.is_active.is_(True),
-            Reward.deleted_at.is_(None),
-            Reward.required_stamps <= stamp_count,
-        )
-    )
-
-    rewards = result.scalars().all()
-
-    if not rewards:
-        return []
-
-    result = await db.execute(
-        select(RewardClaim).where(
-            RewardClaim.campaign_membership_id == membership.id,
-            RewardClaim.status != RewardClaimStatus.CANCELLED,
-        )
-    )
-
-    existing_reward_ids = {
-        claim.reward_id
-        for claim in result.scalars().all()
-    }
-
-    created_claims: list[RewardClaim] = []
-
-    for reward in rewards:
-        if reward.id in existing_reward_ids:
-            continue
-
-        now = datetime.now(timezone.utc)
-
-        claim = RewardClaim(
-            reward_id=reward.id,
-            customer_id=membership.customer_id,
-            campaign_membership_id=membership.id,
-            status=RewardClaimStatus.AVAILABLE,
-            claimed_at=now,
-        )
-
-        db.add(claim)
-        created_claims.append(claim)
-
-    return created_claims
-
-async def get_customer_reward_claims(
-    db: AsyncSession,
-    customer_id: UUID,
-) -> list[RewardClaim]:
-    result = await db.execute(
-        select(RewardClaim)
-        .options(selectinload(RewardClaim.reward))
-        .where(
-            RewardClaim.customer_id == customer_id,
-        )
-        .order_by(RewardClaim.created_at.desc())
-    )
-
-    return list(result.scalars().all())
-
-
-async def get_reward_claim(
-    db: AsyncSession,
-    claim_id: UUID,
-    customer_id: UUID,
-) -> RewardClaim:
-    result = await db.execute(
-        select(RewardClaim)
-        .options(selectinload(RewardClaim.reward))
-        .where(
-            RewardClaim.id == claim_id,
-            RewardClaim.customer_id == customer_id,
-        )
-    )
-
-    claim = result.scalar_one_or_none()
-
-    if claim is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Reward claim not found",
-        )
-
-    return claim
-
-
-async def use_reward_claim(
-    db: AsyncSession,
-    claim_id: UUID,
-    business_user: BusinessUser,
-) -> RewardClaim:
-    result = await db.execute(
-        select(RewardClaim)
-        .options(
-            selectinload(RewardClaim.reward),
-            selectinload(RewardClaim.customer),
-        )
-        .where(
-            RewardClaim.id == claim_id,
-        )
-    )
-
-    claim = result.scalar_one_or_none()
-
-    if claim is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Reward claim not found",
-        )
-
-    if claim.status != RewardClaimStatus.AVAILABLE:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reward claim is not available",
-        )
-
-    if (
-        claim.reward.campaign.business_id
-        != business_user.business_id
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Reward does not belong to this business",
-        )
-
-    now = datetime.now(timezone.utc)
-
-    if claim.expires_at is not None and claim.expires_at <= now:
-        claim.status = RewardClaimStatus.EXPIRED
-
-        await db.commit()
-
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Reward claim has expired",
-        )
-
-    claim.status = RewardClaimStatus.USED
-    claim.used_at = now
-
-    db.add(
-        Transaction(
-            user_id=claim.customer.user_id,
-            business_id=business_user.business_id,
-            type=TransactionType.REWARD_USED,
-            reference_id=claim.id,
-            details={
-                "reward_id": str(claim.reward_id),
-                "reward_name": claim.reward.name,
-            },
-        )
-    )
-
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise
-
-    await db.refresh(claim)
-
-    return claim
 
 async def claim_customer_reward(
     db: AsyncSession,
@@ -201,10 +30,16 @@ async def claim_customer_reward(
         select(CustomerReward)
         .options(
             selectinload(CustomerReward.reward),
-            selectinload(CustomerReward.loyalty_card),
+            selectinload(CustomerReward.loyalty_card)
+            .selectinload(LoyaltyCard.campaign_membership)
+            .selectinload(CampaignMembership.campaign),
+            selectinload(CustomerReward.loyalty_card)
+            .selectinload(LoyaltyCard.campaign_membership)
+            .selectinload(CampaignMembership.customer),
         )
         .where(
             CustomerReward.id == customer_reward_id,
+            CustomerReward.deleted_at.is_(None),
         )
         .with_for_update()
     )
@@ -219,35 +54,20 @@ async def claim_customer_reward(
 
     if customer_reward.status != CustomerRewardStatus.AVAILABLE:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Customer reward is not available",
         )
 
     loyalty_card = customer_reward.loyalty_card
-
-    result = await db.execute(
-        select(CampaignMembership)
-        .options(
-            selectinload(CampaignMembership.campaign),
-            selectinload(CampaignMembership.customer),
-        )
-        .where(
-            CampaignMembership.id
-            == loyalty_card.campaign_membership_id,
-        )
-    )
-
-    membership = result.scalar_one_or_none()
-
-    if membership is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign membership not found",
-        )
-
+    membership = loyalty_card.campaign_membership
     campaign = membership.campaign
 
-    # Campaign must still be valid.
+    if campaign.business_id != business_user.business_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Customer reward not found",
+        )
+
     if not campaign.is_active:
         customer_reward.status = CustomerRewardStatus.EXPIRED
 
@@ -256,15 +76,6 @@ async def claim_customer_reward(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Campaign is no longer active",
-        )
-
-    if (
-        campaign.start_date is not None
-        and now < campaign.start_date
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Campaign has not started yet",
         )
 
     if (
@@ -277,7 +88,7 @@ async def claim_customer_reward(
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Campaign has expired",
+            detail="Customer reward has expired",
         )
 
     reward_claim = RewardClaim(
@@ -287,9 +98,9 @@ async def claim_customer_reward(
         claimed_at=now,
     )
 
-    db.add(reward_claim)
-
     customer_reward.status = CustomerRewardStatus.USED
+
+    db.add(reward_claim)
 
     await db.flush()
 
@@ -297,7 +108,7 @@ async def claim_customer_reward(
         Transaction(
             user_id=membership.customer.user_id,
             business_id=business_user.business_id,
-            type=TransactionType.REWARD_CLAIMED,
+            type=TransactionType.REWARD_USED,
             reference_id=reward_claim.id,
             details={
                 "campaign_id": str(campaign.id),
@@ -326,3 +137,99 @@ async def claim_customer_reward(
     await db.refresh(reward_claim)
 
     return reward_claim
+
+async def get_customer_reward_claims(
+    db: AsyncSession,
+    customer_id: UUID,
+) -> list[RewardClaim]:
+    result = await db.execute(
+        select(RewardClaim)
+        .join(
+            CustomerReward,
+            RewardClaim.customer_reward_id == CustomerReward.id,
+        )
+        .join(
+            LoyaltyCard,
+            CustomerReward.loyalty_card_id == LoyaltyCard.id,
+        )
+        .join(
+            CampaignMembership,
+            LoyaltyCard.campaign_membership_id
+            == CampaignMembership.id,
+        )
+        .where(
+            CampaignMembership.customer_id == customer_id,
+        )
+        .options(
+            selectinload(
+                RewardClaim.customer_reward,
+            ).selectinload(
+                CustomerReward.reward,
+            ),
+            selectinload(
+                RewardClaim.business_user,
+            ),
+        )
+        .order_by(RewardClaim.claimed_at.desc())
+    )
+
+    return list(result.scalars().all())
+
+
+async def get_reward_claim(
+    db: AsyncSession,
+    claim_id: UUID,
+    customer_id: UUID,
+) -> RewardClaim:
+    result = await db.execute(
+        select(RewardClaim)
+        .join(
+            CustomerReward,
+            RewardClaim.customer_reward_id == CustomerReward.id,
+        )
+        .join(
+            LoyaltyCard,
+            CustomerReward.loyalty_card_id == LoyaltyCard.id,
+        )
+        .join(
+            CampaignMembership,
+            LoyaltyCard.campaign_membership_id
+            == CampaignMembership.id,
+        )
+        .where(
+            RewardClaim.id == claim_id,
+            CampaignMembership.customer_id == customer_id,
+        )
+        .options(
+            selectinload(
+                RewardClaim.customer_reward,
+            ).selectinload(
+                CustomerReward.reward,
+            ),
+            selectinload(
+                RewardClaim.business_user,
+            ),
+        )
+    )
+
+    claim = result.scalar_one_or_none()
+
+    if claim is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reward claim not found",
+        )
+
+    return claim
+
+
+async def use_reward_claim(
+    db: AsyncSession,
+    claim_id: UUID,
+    business_user: BusinessUser,
+) -> RewardClaim:
+    return await claim_customer_reward(
+        db=db,
+        customer_reward_id=claim_id,
+        business_user=business_user,
+    )

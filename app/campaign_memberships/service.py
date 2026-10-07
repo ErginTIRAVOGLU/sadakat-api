@@ -7,7 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.campaign_memberships.models import CampaignMembership
 from app.campaigns.models import Campaign
-from app.common.enums import CampaignMembershipStatus, TransactionType
+from app.common.enums import (
+    CampaignMembershipStatus,
+    LoyaltyCardStatus,
+    TransactionType,
+)
+from app.loyalty_cards.models import LoyaltyCard
 from app.transactions.models import Transaction
 from app.users.models import CustomerProfile
 
@@ -17,6 +22,8 @@ async def join_campaign(
     customer: CustomerProfile,
     campaign_id: UUID,
 ) -> CampaignMembership:
+    now = datetime.now(timezone.utc)
+
     result = await db.execute(
         select(Campaign).where(
             Campaign.id == campaign_id,
@@ -37,25 +44,25 @@ async def join_campaign(
             detail="Campaign is not active",
         )
 
-    now = datetime.now(timezone.utc)
-
     if campaign.start_date is not None and now < campaign.start_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Campaign has not started yet",
         )
 
-    if campaign.end_date is not None and now > campaign.end_date:
+    if campaign.end_date is not None and now >= campaign.end_date:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Campaign has already ended",
         )
 
     result = await db.execute(
-        select(CampaignMembership).where(
+        select(CampaignMembership)
+        .where(
             CampaignMembership.campaign_id == campaign.id,
             CampaignMembership.customer_id == customer.id,
         )
+        .with_for_update()
     )
     membership = result.scalar_one_or_none()
 
@@ -66,23 +73,30 @@ async def join_campaign(
                 detail="Customer is already a member of this campaign",
             )
 
-        if membership.status == CampaignMembershipStatus.COMPLETED:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Customer has already completed this campaign",
-            )
-
-        membership.status = CampaignMembershipStatus.ACTIVE
-        membership.joined_at = now
-        membership.completed_at = None
-    else:
-        membership = CampaignMembership(
-            campaign_id=campaign.id,
-            customer_id=customer.id,
-            status=CampaignMembershipStatus.ACTIVE,
-            joined_at=now,
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Customer cannot join this campaign again",
         )
-        db.add(membership)
+
+    membership = CampaignMembership(
+        campaign_id=campaign.id,
+        customer_id=customer.id,
+        status=CampaignMembershipStatus.ACTIVE,
+        joined_at=now,
+    )
+
+    db.add(membership)
+
+    await db.flush()
+
+    loyalty_card = LoyaltyCard(
+        campaign_membership_id=membership.id,
+        card_number=1,
+        stamp_count=0,
+        status=LoyaltyCardStatus.ACTIVE,
+    )
+
+    db.add(loyalty_card)
 
     await db.flush()
 
@@ -90,9 +104,12 @@ async def join_campaign(
         user_id=customer.user_id,
         business_id=campaign.business_id,
         type=TransactionType.CAMPAIGN_JOINED,
-        reference_id=campaign.id,
+        reference_id=membership.id,
         details={
+            "campaign_id": str(campaign.id),
             "campaign_name": campaign.name,
+            "loyalty_card_id": str(loyalty_card.id),
+            "card_number": loyalty_card.card_number,
         },
     )
 

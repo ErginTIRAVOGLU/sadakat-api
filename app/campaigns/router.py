@@ -9,13 +9,18 @@ from app.auth.dependencies import (
     require_business_role,
 )
 from app.businesses.models import BusinessUser
-from app.campaigns.schemas import CampaignCreate, CampaignResponse, CampaignUpdate
+from app.campaigns.schemas import (
+    CampaignCreate,
+    CampaignResponse,
+    CampaignUpdate,
+)
 from app.campaigns.service import (
     create_campaign,
     delete_campaign,
     get_active_campaigns,
     get_business_campaigns,
     get_campaign_by_id,
+    is_campaign_active,
     update_campaign,
 )
 from app.common.enums import BusinessUserRole, UserRole
@@ -32,7 +37,7 @@ router = APIRouter(
 @router.post(
     "",
     response_model=CampaignResponse,
-    status_code=201,
+    status_code=status.HTTP_201_CREATED,
 )
 async def create_campaign_endpoint(
     data: CampaignCreate,
@@ -51,6 +56,7 @@ async def create_campaign_endpoint(
     )
 
     return CampaignResponse.model_validate(campaign)
+
 
 @router.get(
     "",
@@ -71,7 +77,7 @@ async def list_campaigns_endpoint(
 
         if business_user is None:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Business membership not found",
             )
 
@@ -80,15 +86,15 @@ async def list_campaigns_endpoint(
             business_id=business_user.business_id,
         )
 
-    elif current_user.role == UserRole.CUSTOMER:
-        campaigns = await get_active_campaigns(db=db)
-
-    elif current_user.role == UserRole.ADMIN:
+    elif current_user.role in (
+        UserRole.CUSTOMER,
+        UserRole.ADMIN,
+    ):
         campaigns = await get_active_campaigns(db=db)
 
     else:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions",
         )
 
@@ -96,7 +102,8 @@ async def list_campaigns_endpoint(
         CampaignResponse.model_validate(campaign)
         for campaign in campaigns
     ]
-    
+
+
 @router.get(
     "/{campaign_id}",
     response_model=CampaignResponse,
@@ -112,9 +119,9 @@ async def get_campaign_endpoint(
     )
 
     if current_user.role == UserRole.CUSTOMER:
-        if not campaign.is_active:
+        if not is_campaign_active(campaign):
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Campaign not found",
             )
 
@@ -129,23 +136,24 @@ async def get_campaign_endpoint(
 
         if business_user is None:
             raise HTTPException(
-                status_code=403,
+                status_code=status.HTTP_403_FORBIDDEN,
                 detail="Business membership not found",
             )
 
         if campaign.business_id != business_user.business_id:
             raise HTTPException(
-                status_code=404,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Campaign not found",
             )
 
     elif current_user.role != UserRole.ADMIN:
         raise HTTPException(
-            status_code=403,
+            status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions",
         )
 
     return CampaignResponse.model_validate(campaign)
+
 
 @router.put(
     "/{campaign_id}",
@@ -181,9 +189,10 @@ async def update_campaign_endpoint(
 
     return CampaignResponse.model_validate(campaign)
 
+
 @router.delete(
     "/{campaign_id}",
-    status_code=204,
+    status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_campaign_endpoint(
     campaign_id: UUID,
