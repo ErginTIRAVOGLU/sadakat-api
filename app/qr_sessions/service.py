@@ -19,7 +19,6 @@ from app.core.security import generate_qr_token, hash_qr_token
 from app.customer_rewards.models import CustomerReward
 from app.loyalty_cards.models import LoyaltyCard
 from app.qr_sessions.models import QRSession
-from app.rewards.models import Reward
 from app.stamps.models import Stamp
 from app.transactions.models import Transaction
 
@@ -34,13 +33,11 @@ def is_campaign_active(
     if not campaign.is_active:
         return False
 
-    if campaign.start_date is not None:
-        if now < campaign.start_date:
-            return False
+    if campaign.start_date is not None and now < campaign.start_date:
+        return False
 
-    if campaign.end_date is not None:
-        if now >= campaign.end_date:
-            return False
+    if campaign.end_date is not None and now >= campaign.end_date:
+        return False
 
     return True
 
@@ -51,6 +48,7 @@ async def create_qr_session(
 ) -> tuple[QRSession, str]:
     now = datetime.now(timezone.utc)
 
+    # Expire the customer's existing active QR sessions.
     result = await db.execute(
         select(QRSession)
         .where(
@@ -107,7 +105,9 @@ async def scan_qr_session(
 
     result = await db.execute(
         select(QRSession)
-        .options(selectinload(QRSession.customer))
+        .options(
+            selectinload(QRSession.customer),
+        )
         .where(
             QRSession.token_hash == token_hash,
         )
@@ -145,7 +145,7 @@ async def scan_qr_session(
     result = await db.execute(
         select(Campaign)
         .options(
-            selectinload(Campaign.rewards),
+            selectinload(Campaign.reward),
         )
         .where(
             Campaign.id == campaign_id,
@@ -209,7 +209,9 @@ async def scan_qr_session(
             LoyaltyCard.campaign_membership_id == membership.id,
             LoyaltyCard.status == LoyaltyCardStatus.ACTIVE,
         )
-        .order_by(LoyaltyCard.card_number.desc())
+        .order_by(
+            LoyaltyCard.card_number.desc(),
+        )
         .with_for_update()
     )
 
@@ -223,7 +225,9 @@ async def scan_qr_session(
             .where(
                 LoyaltyCard.campaign_membership_id == membership.id,
             )
-            .order_by(LoyaltyCard.card_number.desc())
+            .order_by(
+                LoyaltyCard.card_number.desc(),
+            )
             .limit(1)
             .with_for_update()
         )
@@ -304,36 +308,30 @@ async def scan_qr_session(
     # 9. Card completed?
     # ---------------------------------------------------------
 
-    reward = None
     customer_reward = None
 
     if loyalty_card.stamp_count == campaign.stamp_target:
+
         loyalty_card.status = LoyaltyCardStatus.COMPLETED
         loyalty_card.completed_at = now
 
         # -----------------------------------------------------
-        # 9.1 Find campaign reward
+        # 9.1 Get campaign reward
         # -----------------------------------------------------
 
-        active_rewards = [
-            item
-            for item in campaign.rewards
-            if item.is_active
-        ]
+        reward = campaign.reward
 
-        if len(active_rewards) == 0:
+        if reward is None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Campaign has no active reward",
+                detail="Campaign has no reward",
             )
 
-        if len(active_rewards) > 1:
+        if not reward.is_active:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Campaign has multiple active rewards",
+                detail="Campaign reward is not active",
             )
-
-        reward = active_rewards[0]
 
         # -----------------------------------------------------
         # 9.2 Create customer's earned reward

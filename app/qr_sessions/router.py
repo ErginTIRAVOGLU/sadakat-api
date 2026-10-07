@@ -6,8 +6,15 @@ from app.auth.dependencies import get_current_user, require_business_role
 from app.businesses.models import BusinessUser
 from app.common.enums import BusinessUserRole, UserRole
 from app.core.database import get_db
-from app.qr_sessions.schemas import QRSessionCreateResponse, QRSessionScanRequest, QRSessionScanResponse
-from app.qr_sessions.service import create_qr_session, scan_qr_session
+from app.qr_sessions.schemas import (
+    QRSessionCreateResponse,
+    QRSessionScanRequest,
+    QRSessionScanResponse,
+)
+from app.qr_sessions.service import (
+    create_qr_session,
+    scan_qr_session,
+)
 from app.users.models import CustomerProfile, User
 
 
@@ -61,7 +68,8 @@ async def create_qr_session_endpoint(
         updated_at=qr_session.updated_at,
         deleted_at=qr_session.deleted_at,
     )
-    
+
+
 @router.post(
     "/scan",
     response_model=QRSessionScanResponse,
@@ -77,7 +85,12 @@ async def scan_qr_session_endpoint(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> QRSessionScanResponse:
-    qr_session, stamp, stamp_count = await scan_qr_session(
+
+    (
+        qr_session,
+        stamp,
+        stamp_count,
+    ) = await scan_qr_session(
         db=db,
         token=data.token,
         campaign_id=data.campaign_id,

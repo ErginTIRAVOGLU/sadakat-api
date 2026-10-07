@@ -1,8 +1,8 @@
 """initial database schema
 
-Revision ID: fd0d156f586d
+Revision ID: 1bdeebec3d80
 Revises: 
-Create Date: 2026-10-06 22:13:34.303950
+Create Date: 2026-10-07 18:25:51.431347
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = 'fd0d156f586d'
+revision: str = '1bdeebec3d80'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -45,7 +45,7 @@ def upgrade() -> None:
     op.create_table('users',
     sa.Column('email', sa.String(length=255), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
-    sa.Column('role', sa.String(length=20), nullable=False),
+    sa.Column('role', sa.Enum('CUSTOMER', 'BUSINESS', 'ADMIN', name='user_role'), nullable=False),
     sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
     sa.Column('email_verified', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('last_login_at', sa.DateTime(timezone=True), nullable=True),
@@ -59,7 +59,7 @@ def upgrade() -> None:
     op.create_table('business_users',
     sa.Column('business_id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
-    sa.Column('role', sa.String(length=20), nullable=False),
+    sa.Column('role', sa.Enum('OWNER', 'MANAGER', 'STAFF', name='business_user_role'), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -159,7 +159,6 @@ def upgrade() -> None:
     sa.Column('campaign_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(length=150), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('required_stamps', sa.Integer(), nullable=False),
     sa.Column('reward_type', sa.Enum('FREE_PRODUCT', 'DISCOUNT_PERCENT', 'DISCOUNT_AMOUNT', 'FREE_SERVICE', 'OTHER', name='reward_type'), nullable=False),
     sa.Column('reward_value', sa.String(length=255), nullable=True),
     sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
@@ -170,57 +169,91 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['campaign_id'], ['campaigns.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index(op.f('ix_rewards_campaign_id'), 'rewards', ['campaign_id'], unique=False)
-    op.create_table('reward_claims',
-    sa.Column('reward_id', sa.UUID(), nullable=False),
-    sa.Column('customer_id', sa.UUID(), nullable=False),
+    op.create_index(op.f('ix_rewards_campaign_id'), 'rewards', ['campaign_id'], unique=True)
+    op.create_table('loyalty_cards',
     sa.Column('campaign_membership_id', sa.UUID(), nullable=False),
-    sa.Column('status', sa.Enum('AVAILABLE', 'USED', 'EXPIRED', 'CANCELLED', name='reward_claim_status'), nullable=False),
-    sa.Column('claimed_at', sa.DateTime(timezone=True), nullable=False),
-    sa.Column('used_at', sa.DateTime(timezone=True), nullable=True),
-    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('card_number', sa.Integer(), nullable=False),
+    sa.Column('stamp_count', sa.Integer(), server_default='0', nullable=False),
+    sa.Column('status', sa.Enum('ACTIVE', 'COMPLETED', 'ARCHIVED', name='loyalty_card_status'), server_default='ACTIVE', nullable=False),
+    sa.Column('completed_at', sa.DateTime(), nullable=True),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
-    sa.ForeignKeyConstraint(['campaign_membership_id'], ['campaign_memberships.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['customer_id'], ['customer_profiles.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['reward_id'], ['rewards.id'], ondelete='RESTRICT'),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['campaign_membership_id'], ['campaign_memberships.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('campaign_membership_id', 'card_number', name='uq_loyalty_cards_membership_card_number')
     )
-    op.create_index(op.f('ix_reward_claims_campaign_membership_id'), 'reward_claims', ['campaign_membership_id'], unique=False)
-    op.create_index(op.f('ix_reward_claims_customer_id'), 'reward_claims', ['customer_id'], unique=False)
-    op.create_index(op.f('ix_reward_claims_reward_id'), 'reward_claims', ['reward_id'], unique=False)
+    op.create_index(op.f('ix_loyalty_cards_campaign_membership_id'), 'loyalty_cards', ['campaign_membership_id'], unique=False)
+    op.create_table('customer_rewards',
+    sa.Column('reward_id', sa.UUID(), nullable=False),
+    sa.Column('loyalty_card_id', sa.UUID(), nullable=False),
+    sa.Column('status', sa.Enum('AVAILABLE', 'USED', 'EXPIRED', name='customer_reward_status'), nullable=False),
+    sa.Column('earned_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['loyalty_card_id'], ['loyalty_cards.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['reward_id'], ['rewards.id'], ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('loyalty_card_id', name='uq_customer_rewards_loyalty_card')
+    )
+    op.create_index(op.f('ix_customer_rewards_loyalty_card_id'), 'customer_rewards', ['loyalty_card_id'], unique=False)
+    op.create_index(op.f('ix_customer_rewards_reward_id'), 'customer_rewards', ['reward_id'], unique=False)
     op.create_table('stamps',
     sa.Column('campaign_membership_id', sa.UUID(), nullable=False),
     sa.Column('qr_session_id', sa.UUID(), nullable=False),
     sa.Column('business_user_id', sa.UUID(), nullable=False),
+    sa.Column('loyalty_card_id', sa.UUID(), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['business_user_id'], ['business_users.id'], ondelete='RESTRICT'),
     sa.ForeignKeyConstraint(['campaign_membership_id'], ['campaign_memberships.id'], ondelete='CASCADE'),
+    sa.ForeignKeyConstraint(['loyalty_card_id'], ['loyalty_cards.id'], ondelete='CASCADE'),
     sa.ForeignKeyConstraint(['qr_session_id'], ['qr_sessions.id'], ondelete='RESTRICT'),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_stamps_business_user_id'), 'stamps', ['business_user_id'], unique=False)
     op.create_index(op.f('ix_stamps_campaign_membership_id'), 'stamps', ['campaign_membership_id'], unique=False)
+    op.create_index(op.f('ix_stamps_loyalty_card_id'), 'stamps', ['loyalty_card_id'], unique=False)
     op.create_index(op.f('ix_stamps_qr_session_id'), 'stamps', ['qr_session_id'], unique=True)
+    op.create_table('reward_claims',
+    sa.Column('customer_reward_id', sa.UUID(), nullable=False),
+    sa.Column('business_user_id', sa.UUID(), nullable=False),
+    sa.Column('status', sa.Enum('USED', 'CANCELLED', name='reward_claim_status'), nullable=False),
+    sa.Column('claimed_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['business_user_id'], ['business_users.id'], ondelete='RESTRICT'),
+    sa.ForeignKeyConstraint(['customer_reward_id'], ['customer_rewards.id'], ondelete='RESTRICT'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_reward_claims_business_user_id'), 'reward_claims', ['business_user_id'], unique=False)
+    op.create_index(op.f('ix_reward_claims_customer_reward_id'), 'reward_claims', ['customer_reward_id'], unique=False)
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_index(op.f('ix_reward_claims_customer_reward_id'), table_name='reward_claims')
+    op.drop_index(op.f('ix_reward_claims_business_user_id'), table_name='reward_claims')
+    op.drop_table('reward_claims')
     op.drop_index(op.f('ix_stamps_qr_session_id'), table_name='stamps')
+    op.drop_index(op.f('ix_stamps_loyalty_card_id'), table_name='stamps')
     op.drop_index(op.f('ix_stamps_campaign_membership_id'), table_name='stamps')
     op.drop_index(op.f('ix_stamps_business_user_id'), table_name='stamps')
     op.drop_table('stamps')
-    op.drop_index(op.f('ix_reward_claims_reward_id'), table_name='reward_claims')
-    op.drop_index(op.f('ix_reward_claims_customer_id'), table_name='reward_claims')
-    op.drop_index(op.f('ix_reward_claims_campaign_membership_id'), table_name='reward_claims')
-    op.drop_table('reward_claims')
+    op.drop_index(op.f('ix_customer_rewards_reward_id'), table_name='customer_rewards')
+    op.drop_index(op.f('ix_customer_rewards_loyalty_card_id'), table_name='customer_rewards')
+    op.drop_table('customer_rewards')
+    op.drop_index(op.f('ix_loyalty_cards_campaign_membership_id'), table_name='loyalty_cards')
+    op.drop_table('loyalty_cards')
     op.drop_index(op.f('ix_rewards_campaign_id'), table_name='rewards')
     op.drop_table('rewards')
     op.drop_index(op.f('ix_qr_sessions_token_hash'), table_name='qr_sessions')

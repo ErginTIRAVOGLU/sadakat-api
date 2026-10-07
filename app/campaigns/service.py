@@ -163,12 +163,10 @@ def is_campaign_active(
     if not campaign.is_active:
         return False
 
-    if campaign.start_date is not None:
-        if now < campaign.start_date:
-            return False
+    if campaign.start_date is not None and now < campaign.start_date:
+        return False
 
-    if campaign.end_date is not None:
-        if now >= campaign.end_date:
-            return False
+    if campaign.end_date is not None and now >= campaign.end_date:
+        return False
 
     return True

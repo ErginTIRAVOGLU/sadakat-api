@@ -7,11 +7,6 @@ from app.common.enums import QRSessionStatus
 from app.common.schemas import BaseResponse
 
 
-class QRSessionCreate(BaseModel):
-    customer_id: UUID
-    expires_at: datetime
-
-
 class QRSessionCreateResponse(BaseResponse):
     token: str
     expires_at: datetime
@@ -24,7 +19,8 @@ class QRSessionResponse(BaseResponse):
     expires_at: datetime
     used_at: datetime | None
     status: QRSessionStatus
-    
+
+
 class QRSessionScanRequest(BaseModel):
     token: str = Field(min_length=1)
     campaign_id: UUID
