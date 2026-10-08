@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey
-from sqlalchemy import Enum as SAEnum
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import RewardClaimStatus
@@ -37,12 +37,12 @@ class RewardClaim(
     )
 
     status: Mapped[RewardClaimStatus] = mapped_column(
-        SAEnum(
+        ENUM(
             RewardClaimStatus,
             name="reward_claim_status",
             values_callable=lambda enum_class: [
                 item.value for item in enum_class
-            ],
+            ], 
         ),
         nullable=False,
         default=RewardClaimStatus.USED,

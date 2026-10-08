@@ -30,7 +30,6 @@ def run_migrations_offline() -> None:
         dialect_opts={
             "paramstyle": "named",
         },
-        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -43,7 +42,6 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        compare_type=True,
     )
 
     with context.begin_transaction():
@@ -75,7 +73,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in online mode."""
+    """Run migrations using the provided database connection."""
 
     import asyncio
 

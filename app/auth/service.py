@@ -1,5 +1,5 @@
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -8,12 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import (
     create_access_token,
     hash_password,
-    timezone,
     verify_password,
 )
 
 from app.users.models import CustomerProfile, User
-from app.common.enums import UserRole
 from app.common.enums import BusinessUserRole, UserRole
 from app.businesses.models import Business, BusinessUser
 

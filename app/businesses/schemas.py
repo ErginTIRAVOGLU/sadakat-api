@@ -1,8 +1,8 @@
-from uuid import UUID
+from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
-
 
 from app.common.enums import BusinessUserRole
 from app.common.schemas import BaseResponse
@@ -52,12 +52,12 @@ class BusinessResponse(BaseResponse):
     latitude: Decimal | None
     longitude: Decimal | None
     is_active: bool
-    
-    
-### BusinessUser
+
+
+# BusinessUser
+
 
 class BusinessUserCreate(BaseModel):
-    business_id: UUID
     user_id: UUID
     role: BusinessUserRole = BusinessUserRole.STAFF
 
@@ -70,3 +70,43 @@ class BusinessUserResponse(BaseResponse):
     business_id: UUID
     user_id: UUID
     role: BusinessUserRole
+    
+class BusinessEmployeeInviteCreate(BaseModel):
+    email: EmailStr
+    role: BusinessUserRole = BusinessUserRole.STAFF
+    
+class BusinessInvitationResponse(BaseResponse):
+    business_id: UUID
+    email: EmailStr
+    role: BusinessUserRole
+    expires_at: datetime
+    accepted_at: datetime | None
+
+class BusinessEmployeeInviteCreate(BaseModel):
+    email: EmailStr
+    role: BusinessUserRole = BusinessUserRole.STAFF
+
+
+class BusinessInvitationResponse(BaseResponse):
+    business_id: UUID
+    email: EmailStr
+    role: BusinessUserRole
+    expires_at: datetime
+    accepted_at: datetime | None = None
+
+
+class BusinessInvitationCreateResponse(
+    BusinessInvitationResponse,
+):
+    token: str
+
+
+class BusinessInvitationAcceptRequest(BaseModel):
+    token: str = Field(min_length=1)
+    password: str = Field(min_length=8, max_length=128)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+    phone: str | None = Field(
+        default=None,
+        max_length=30,
+    )

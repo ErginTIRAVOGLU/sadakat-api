@@ -18,6 +18,7 @@ from app.campaigns.service import (
     create_campaign,
     delete_campaign,
     get_active_campaigns,
+    get_business_campaign,
     get_business_campaigns,
     get_campaign_by_id,
     is_campaign_active,
@@ -90,7 +91,9 @@ async def list_campaigns_endpoint(
         UserRole.CUSTOMER,
         UserRole.ADMIN,
     ):
-        campaigns = await get_active_campaigns(db=db)
+        campaigns = await get_active_campaigns(
+            db=db,
+        )
 
     else:
         raise HTTPException(
@@ -113,19 +116,7 @@ async def get_campaign_endpoint(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CampaignResponse:
-    campaign = await get_campaign_by_id(
-        db=db,
-        campaign_id=campaign_id,
-    )
-
-    if current_user.role == UserRole.CUSTOMER:
-        if not is_campaign_active(campaign):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Campaign not found",
-            )
-
-    elif current_user.role == UserRole.BUSINESS:
+    if current_user.role == UserRole.BUSINESS:
         result = await db.execute(
             select(BusinessUser).where(
                 BusinessUser.user_id == current_user.id,
@@ -140,17 +131,33 @@ async def get_campaign_endpoint(
                 detail="Business membership not found",
             )
 
-        if campaign.business_id != business_user.business_id:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Campaign not found",
-            )
-
-    elif current_user.role != UserRole.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions",
+        campaign = await get_business_campaign(
+            db=db,
+            business_id=business_user.business_id,
+            campaign_id=campaign_id,
         )
+
+    else:
+        campaign = await get_campaign_by_id(
+            db=db,
+            campaign_id=campaign_id,
+        )
+
+        if current_user.role == UserRole.CUSTOMER:
+            if not is_campaign_active(campaign):
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Campaign not found",
+                )
+
+        elif current_user.role == UserRole.ADMIN:
+            pass
+
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
 
     return CampaignResponse.model_validate(campaign)
 
@@ -170,16 +177,11 @@ async def update_campaign_endpoint(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> CampaignResponse:
-    campaign = await get_campaign_by_id(
+    campaign = await get_business_campaign(
         db=db,
+        business_id=business_user.business_id,
         campaign_id=campaign_id,
     )
-
-    if campaign.business_id != business_user.business_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
 
     campaign = await update_campaign(
         db=db,
@@ -204,16 +206,11 @@ async def delete_campaign_endpoint(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    campaign = await get_campaign_by_id(
+    campaign = await get_business_campaign(
         db=db,
+        business_id=business_user.business_id,
         campaign_id=campaign_id,
     )
-
-    if campaign.business_id != business_user.business_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
 
     await delete_campaign(
         db=db,

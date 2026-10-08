@@ -1,9 +1,8 @@
-from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from app.common.enums import RewardClaimStatus, RewardType
+from app.common.enums import RewardType
 from app.common.schemas import BaseResponse
 
 

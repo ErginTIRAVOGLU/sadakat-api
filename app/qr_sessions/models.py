@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, String
-from sqlalchemy import Enum as SAEnum
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import QRSessionStatus
@@ -55,9 +55,9 @@ class QRSession(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     status: Mapped[QRSessionStatus] = mapped_column(
-        SAEnum(
+        ENUM(
             QRSessionStatus,
-            name="qr_session_status",
+            name="qr_session_status", 
         ),
         nullable=False,
         default=QRSessionStatus.ACTIVE,

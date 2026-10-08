@@ -9,7 +9,6 @@ from app.businesses.models import BusinessUser
 from app.campaign_memberships.models import CampaignMembership
 from app.campaigns.models import Campaign
 from app.campaigns.schemas import CampaignCreate, CampaignUpdate
-from app.stamps.models import Stamp
 
 
 async def create_campaign(
@@ -114,6 +113,30 @@ async def get_campaign_by_id(
     return campaign
 
 
+async def get_business_campaign(
+    db: AsyncSession,
+    business_id: UUID,
+    campaign_id: UUID,
+) -> Campaign:
+    result = await db.execute(
+        select(Campaign).where(
+            Campaign.id == campaign_id,
+            Campaign.business_id == business_id,
+            Campaign.deleted_at.is_(None),
+        )
+    )
+
+    campaign = result.scalar_one_or_none()
+
+    if campaign is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Campaign not found",
+        )
+
+    return campaign
+
+
 async def update_campaign(
     db: AsyncSession,
     campaign: Campaign,
@@ -125,6 +148,7 @@ async def update_campaign(
         "start_date",
         campaign.start_date,
     )
+
     new_end_date = update_data.get(
         "end_date",
         campaign.end_date,
@@ -140,25 +164,26 @@ async def update_campaign(
             detail="End date must be after start date",
         )
 
+    # A campaign's stamp target cannot change after
+    # at least one customer has joined the campaign.
     if "stamp_target" in update_data:
         result = await db.execute(
-            select(Stamp.id)
-            .join(
-                CampaignMembership,
-                Stamp.campaign_membership_id == CampaignMembership.id,
-            )
+            select(CampaignMembership.id)
             .where(
                 CampaignMembership.campaign_id == campaign.id,
             )
             .limit(1)
         )
 
-        has_stamps = result.scalar_one_or_none() is not None
+        has_membership = result.scalar_one_or_none() is not None
 
-        if has_stamps:
+        if has_membership:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Stamp target cannot be changed after stamps have been earned",
+                detail=(
+                    "Stamp target cannot be changed after "
+                    "customers have joined the campaign"
+                ),
             )
 
     now = datetime.now(timezone.utc)
@@ -171,7 +196,10 @@ async def update_campaign(
     if campaign_started and "start_date" in update_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Start date cannot be changed after campaign has started",
+            detail=(
+                "Start date cannot be changed after "
+                "campaign has started"
+            ),
         )
 
     for field, value in update_data.items():

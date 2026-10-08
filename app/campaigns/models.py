@@ -1,13 +1,11 @@
-from datetime import datetime 
-from uuid import UUID
+from datetime import datetime
 from typing import TYPE_CHECKING
-
+from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-
-from app.common.models import UUIDPrimaryKeyMixin, TimestampMixin
+from app.common.models import TimestampMixin, UUIDPrimaryKeyMixin
 from app.core.database import Base
 
 
@@ -16,11 +14,19 @@ if TYPE_CHECKING:
     from app.campaign_memberships.models import CampaignMembership
     from app.rewards.models import Reward
 
-class Campaign(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+
+class Campaign(
+    UUIDPrimaryKeyMixin,
+    TimestampMixin,
+    Base,
+):
     __tablename__ = "campaigns"
 
     business_id: Mapped[UUID] = mapped_column(
-        ForeignKey("businesses.id", ondelete="CASCADE"),
+        ForeignKey(
+            "businesses.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )

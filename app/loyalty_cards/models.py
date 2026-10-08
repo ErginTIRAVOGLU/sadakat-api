@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ENUM, UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import LoyaltyCardStatus
@@ -57,12 +57,12 @@ class LoyaltyCard(
     )
 
     status: Mapped[LoyaltyCardStatus] = mapped_column(
-        Enum(
+        ENUM(
             LoyaltyCardStatus,
             name="loyalty_card_status",
             values_callable=lambda enum_class: [
                 item.value for item in enum_class
-            ],
+            ], 
         ),
         nullable=False,
         default=LoyaltyCardStatus.ACTIVE,

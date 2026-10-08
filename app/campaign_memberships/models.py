@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, UniqueConstraint, func
-from sqlalchemy import Enum as SAEnum
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import CampaignMembershipStatus
@@ -41,9 +41,9 @@ class CampaignMembership(
     )
 
     status: Mapped[CampaignMembershipStatus] = mapped_column(
-        SAEnum(
+        ENUM(
             CampaignMembershipStatus,
-            name="campaign_membership_status",
+            name="campaign_membership_status", 
         ),
         nullable=False,
         default=CampaignMembershipStatus.ACTIVE,

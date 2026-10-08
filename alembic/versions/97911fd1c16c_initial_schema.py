@@ -1,8 +1,8 @@
-"""initial database schema
+"""initial schema
 
-Revision ID: 1bdeebec3d80
+Revision ID: 97911fd1c16c
 Revises: 
-Create Date: 2026-10-07 18:25:51.431347
+Create Date: 2026-10-08 12:07:59.793363
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '1bdeebec3d80'
+revision: str = '97911fd1c16c'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -45,7 +45,7 @@ def upgrade() -> None:
     op.create_table('users',
     sa.Column('email', sa.String(length=255), nullable=False),
     sa.Column('password_hash', sa.String(length=255), nullable=False),
-    sa.Column('role', sa.Enum('CUSTOMER', 'BUSINESS', 'ADMIN', name='user_role'), nullable=False),
+    sa.Column('role', postgresql.ENUM('CUSTOMER', 'BUSINESS', 'ADMIN', name='user_role'), nullable=False),
     sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
     sa.Column('email_verified', sa.Boolean(), server_default='false', nullable=False),
     sa.Column('last_login_at', sa.DateTime(timezone=True), nullable=True),
@@ -56,10 +56,28 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_email'), 'users', ['email'], unique=True)
+    op.create_table('business_invitations',
+    sa.Column('business_id', sa.UUID(), nullable=False),
+    sa.Column('email', sa.String(length=255), nullable=False),
+    sa.Column('role', postgresql.ENUM('OWNER', 'MANAGER', 'STAFF', name='business_user_role'), nullable=False),
+    sa.Column('token_hash', sa.String(length=64), nullable=False),
+    sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('accepted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.Column('id', sa.UUID(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
+    sa.ForeignKeyConstraint(['business_id'], ['businesses.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_business_invitations_business_id'), 'business_invitations', ['business_id'], unique=False)
+    op.create_index(op.f('ix_business_invitations_email'), 'business_invitations', ['email'], unique=False)
+    op.create_index('ix_business_invitations_pending_email', 'business_invitations', ['business_id', 'email'], unique=True, postgresql_where=sa.text('accepted_at IS NULL'))
+    op.create_index(op.f('ix_business_invitations_token_hash'), 'business_invitations', ['token_hash'], unique=True)
     op.create_table('business_users',
     sa.Column('business_id', sa.UUID(), nullable=False),
     sa.Column('user_id', sa.UUID(), nullable=False),
-    sa.Column('role', sa.Enum('OWNER', 'MANAGER', 'STAFF', name='business_user_role'), nullable=False),
+    sa.Column('role', postgresql.ENUM('OWNER', 'MANAGER', 'STAFF', name='business_user_role'), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -123,7 +141,7 @@ def upgrade() -> None:
     op.create_table('campaign_memberships',
     sa.Column('campaign_id', sa.UUID(), nullable=False),
     sa.Column('customer_id', sa.UUID(), nullable=False),
-    sa.Column('status', sa.Enum('ACTIVE', 'COMPLETED', 'CANCELLED', name='campaign_membership_status'), nullable=False),
+    sa.Column('status', postgresql.ENUM('ACTIVE', 'CANCELLED', name='campaign_membership_status'), nullable=False),
     sa.Column('joined_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.UUID(), nullable=False),
@@ -143,7 +161,7 @@ def upgrade() -> None:
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('used_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('business_id', sa.UUID(), nullable=True),
-    sa.Column('status', sa.Enum('ACTIVE', 'USED', 'EXPIRED', 'CANCELLED', name='qr_session_status'), nullable=False),
+    sa.Column('status', postgresql.ENUM('ACTIVE', 'USED', 'EXPIRED', 'CANCELLED', name='qr_session_status'), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -159,7 +177,7 @@ def upgrade() -> None:
     sa.Column('campaign_id', sa.UUID(), nullable=False),
     sa.Column('name', sa.String(length=150), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('reward_type', sa.Enum('FREE_PRODUCT', 'DISCOUNT_PERCENT', 'DISCOUNT_AMOUNT', 'FREE_SERVICE', 'OTHER', name='reward_type'), nullable=False),
+    sa.Column('reward_type', postgresql.ENUM('FREE_PRODUCT', 'DISCOUNT_PERCENT', 'DISCOUNT_AMOUNT', 'FREE_SERVICE', 'OTHER', name='reward_type'), nullable=False),
     sa.Column('reward_value', sa.String(length=255), nullable=True),
     sa.Column('is_active', sa.Boolean(), server_default='true', nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
@@ -174,8 +192,8 @@ def upgrade() -> None:
     sa.Column('campaign_membership_id', sa.UUID(), nullable=False),
     sa.Column('card_number', sa.Integer(), nullable=False),
     sa.Column('stamp_count', sa.Integer(), server_default='0', nullable=False),
-    sa.Column('status', sa.Enum('ACTIVE', 'COMPLETED', 'ARCHIVED', name='loyalty_card_status'), server_default='ACTIVE', nullable=False),
-    sa.Column('completed_at', sa.DateTime(), nullable=True),
+    sa.Column('status', postgresql.ENUM('ACTIVE', 'COMPLETED', 'ARCHIVED', name='loyalty_card_status'), server_default='ACTIVE', nullable=False),
+    sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -188,7 +206,7 @@ def upgrade() -> None:
     op.create_table('customer_rewards',
     sa.Column('reward_id', sa.UUID(), nullable=False),
     sa.Column('loyalty_card_id', sa.UUID(), nullable=False),
-    sa.Column('status', sa.Enum('AVAILABLE', 'USED', 'EXPIRED', name='customer_reward_status'), nullable=False),
+    sa.Column('status', postgresql.ENUM('AVAILABLE', 'USED', 'EXPIRED', name='customer_reward_status'), nullable=False),
     sa.Column('earned_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -223,7 +241,7 @@ def upgrade() -> None:
     op.create_table('reward_claims',
     sa.Column('customer_reward_id', sa.UUID(), nullable=False),
     sa.Column('business_user_id', sa.UUID(), nullable=False),
-    sa.Column('status', sa.Enum('USED', 'CANCELLED', name='reward_claim_status'), nullable=False),
+    sa.Column('status', postgresql.ENUM('USED', 'CANCELLED', name='reward_claim_status'), nullable=False),
     sa.Column('claimed_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('id', sa.UUID(), nullable=False),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
@@ -275,6 +293,11 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_business_users_user_id'), table_name='business_users')
     op.drop_index(op.f('ix_business_users_business_id'), table_name='business_users')
     op.drop_table('business_users')
+    op.drop_index(op.f('ix_business_invitations_token_hash'), table_name='business_invitations')
+    op.drop_index('ix_business_invitations_pending_email', table_name='business_invitations', postgresql_where=sa.text('accepted_at IS NULL'))
+    op.drop_index(op.f('ix_business_invitations_email'), table_name='business_invitations')
+    op.drop_index(op.f('ix_business_invitations_business_id'), table_name='business_invitations')
+    op.drop_table('business_invitations')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
     op.drop_index(op.f('ix_businesses_slug'), table_name='businesses')

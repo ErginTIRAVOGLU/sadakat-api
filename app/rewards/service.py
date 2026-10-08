@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.businesses.models import BusinessUser
 from app.campaigns.models import Campaign
+from app.customer_rewards.models import CustomerReward
 from app.rewards.models import Reward
 from app.rewards.schemas import RewardCreate, RewardUpdate
 
@@ -36,6 +37,21 @@ async def create_reward(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Campaign is not active",
+        )
+
+    result = await db.execute(
+        select(Reward.id).where(
+            Reward.campaign_id == campaign.id,
+            Reward.deleted_at.is_(None),
+        )
+    )
+
+    existing_reward_id = result.scalar_one_or_none()
+
+    if existing_reward_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Campaign already has a reward",
         )
 
     reward = Reward(
@@ -82,6 +98,36 @@ async def get_reward_by_id(
     return reward
 
 
+async def get_business_reward(
+    db: AsyncSession,
+    business_id: UUID,
+    reward_id: UUID,
+) -> Reward:
+    result = await db.execute(
+        select(Reward)
+        .join(
+            Campaign,
+            Reward.campaign_id == Campaign.id,
+        )
+        .where(
+            Reward.id == reward_id,
+            Reward.deleted_at.is_(None),
+            Campaign.business_id == business_id,
+            Campaign.deleted_at.is_(None),
+        )
+    )
+
+    reward = result.scalar_one_or_none()
+
+    if reward is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Reward not found",
+        )
+
+    return reward
+
+
 async def get_campaign_rewards(
     db: AsyncSession,
     campaign_id: UUID,
@@ -104,6 +150,33 @@ async def update_reward(
     data: RewardUpdate,
 ) -> Reward:
     update_data = data.model_dump(exclude_unset=True)
+
+    result = await db.execute(
+        select(CustomerReward.id)
+        .where(
+            CustomerReward.reward_id == reward.id,
+        )
+        .limit(1)
+    )
+
+    has_customer_rewards = result.scalar_one_or_none() is not None
+
+    if has_customer_rewards:
+        protected_fields = {
+            "name",
+            "description",
+            "reward_type",
+            "reward_value",
+        }
+
+        if protected_fields.intersection(update_data):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Reward details cannot be changed after "
+                    "it has been earned by customers"
+                ),
+            )
 
     for field, value in update_data.items():
         setattr(reward, field, value)

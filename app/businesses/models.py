@@ -1,16 +1,19 @@
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
-
+from sqlalchemy.dialects.postgresql import ENUM
 from sqlalchemy import (
     Boolean,
+    DateTime,
     ForeignKey,
+    Index,
     Numeric,
     String,
     Text,
     UniqueConstraint,
 )
-from sqlalchemy import Enum as SAEnum
+
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -122,6 +125,12 @@ class Business(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="business",
     )
 
+    invitations: Mapped[list["BusinessInvitation"]] = relationship(
+        "BusinessInvitation",
+        back_populates="business",
+        cascade="all, delete-orphan",
+    )
+
 
 class BusinessUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "business_users"
@@ -147,9 +156,9 @@ class BusinessUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     role: Mapped[BusinessUserRole] = mapped_column(
-        SAEnum(
+        ENUM(
             BusinessUserRole,
-            name="business_user_role",
+            name="business_user_role", 
         ),
         nullable=False,
     )
@@ -179,5 +188,62 @@ class BusinessUser(UUIDPrimaryKeyMixin, TimestampMixin, Base):
             "business_id",
             "user_id",
             name="uq_business_users_business_user",
+        ),
+    )
+
+
+class BusinessInvitation(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "business_invitations"
+
+    business_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("businesses.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    email: Mapped[str] = mapped_column(
+        String(255),
+        nullable=False,
+        index=True,
+    )
+
+    role: Mapped[BusinessUserRole] = mapped_column(
+        ENUM(
+            BusinessUserRole,
+            name="business_user_role", 
+        ),
+        nullable=False,
+    )
+
+    token_hash: Mapped[str] = mapped_column(
+        String(64),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    business: Mapped["Business"] = relationship(
+        "Business",
+        back_populates="invitations",
+    )
+
+    __table_args__ = (
+        Index(
+            "ix_business_invitations_pending_email",
+            "business_id",
+            "email",
+            unique=True,
+            postgresql_where=accepted_at.is_(None),
         ),
     )

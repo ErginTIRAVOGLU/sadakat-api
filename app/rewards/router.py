@@ -4,11 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.dependencies import get_current_user, require_business_role
+from app.auth.dependencies import (
+    get_current_user,
+    require_business_role,
+)
 from app.businesses.models import BusinessUser
+from app.campaigns.models import Campaign
+from app.campaigns.service import is_campaign_active
 from app.common.enums import BusinessUserRole, UserRole
 from app.core.database import get_db
-from app.campaigns.models import Campaign
 from app.rewards.schemas import (
     RewardCreate,
     RewardResponse,
@@ -17,6 +21,7 @@ from app.rewards.schemas import (
 from app.rewards.service import (
     create_reward,
     delete_reward,
+    get_business_reward,
     get_campaign_rewards,
     get_reward_by_id,
     update_reward,
@@ -28,6 +33,7 @@ router = APIRouter(
     prefix="/rewards",
     tags=["Rewards"],
 )
+
 
 @router.post(
     "",
@@ -51,6 +57,7 @@ async def create_reward_endpoint(
     )
 
     return RewardResponse.model_validate(reward)
+
 
 @router.get(
     "/campaign/{campaign_id}",
@@ -77,7 +84,7 @@ async def list_campaign_rewards_endpoint(
         )
 
     if current_user.role == UserRole.CUSTOMER:
-        if not campaign.is_active:
+        if not is_campaign_active(campaign):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Campaign not found",
@@ -114,7 +121,8 @@ async def list_campaign_rewards_endpoint(
         RewardResponse.model_validate(reward)
         for reward in rewards
     ]
-    
+
+
 @router.get(
     "/{reward_id}",
     response_model=RewardResponse,
@@ -145,27 +153,25 @@ async def get_reward_endpoint(
         )
 
     if current_user.role == UserRole.CUSTOMER:
-        if not campaign.is_active or not reward.is_active:
+        if not is_campaign_active(campaign) or not reward.is_active:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Reward not found",
             )
 
     elif current_user.role == UserRole.BUSINESS:
-        result = await db.execute(
-            select(BusinessUser).where(
-                BusinessUser.user_id == current_user.id,
-                BusinessUser.business_id == campaign.business_id,
-            )
+        reward = await get_business_reward(
+            db=db,
+            business_id=(
+                await db.execute(
+                    select(BusinessUser.business_id).where(
+                        BusinessUser.user_id == current_user.id,
+                        BusinessUser.business_id == campaign.business_id,
+                    )
+                )
+            ).scalar_one_or_none(),
+            reward_id=reward_id,
         )
-
-        business_user = result.scalar_one_or_none()
-
-        if business_user is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Reward not found",
-            )
 
     elif current_user.role != UserRole.ADMIN:
         raise HTTPException(
@@ -174,6 +180,7 @@ async def get_reward_endpoint(
         )
 
     return RewardResponse.model_validate(reward)
+
 
 @router.put(
     "/{reward_id}",
@@ -190,31 +197,11 @@ async def update_reward_endpoint(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> RewardResponse:
-    reward = await get_reward_by_id(
+    reward = await get_business_reward(
         db=db,
+        business_id=business_user.business_id,
         reward_id=reward_id,
     )
-
-    result = await db.execute(
-        select(Campaign).where(
-            Campaign.id == reward.campaign_id,
-            Campaign.deleted_at.is_(None),
-        )
-    )
-
-    campaign = result.scalar_one_or_none()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
-
-    if campaign.business_id != business_user.business_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Reward not found",
-        )
 
     reward = await update_reward(
         db=db,
@@ -223,6 +210,7 @@ async def update_reward_endpoint(
     )
 
     return RewardResponse.model_validate(reward)
+
 
 @router.delete(
     "/{reward_id}",
@@ -238,31 +226,11 @@ async def delete_reward_endpoint(
     ),
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    reward = await get_reward_by_id(
+    reward = await get_business_reward(
         db=db,
+        business_id=business_user.business_id,
         reward_id=reward_id,
     )
-
-    result = await db.execute(
-        select(Campaign).where(
-            Campaign.id == reward.campaign_id,
-            Campaign.deleted_at.is_(None),
-        )
-    )
-
-    campaign = result.scalar_one_or_none()
-
-    if campaign is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Campaign not found",
-        )
-
-    if campaign.business_id != business_user.business_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Reward not found",
-        )
 
     await delete_reward(
         db=db,

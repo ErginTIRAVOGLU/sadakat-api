@@ -15,6 +15,7 @@ from app.qr_sessions.router import router as qr_sessions_router
 from app.rewards.router import router as rewards_router
 from app.reward_claims.router import router as reward_claims_router
 from app.customer_dashboard.router import router as customer_dashboard_router
+from app.businesses.router import router as business_router
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -67,6 +68,11 @@ app.include_router(
 
 app.include_router(
     customer_dashboard_router,
+    prefix="/api/v1",
+)
+
+app.include_router(
+    business_router,
     prefix="/api/v1",
 )
 
