@@ -1,5 +1,5 @@
 # Resmi Python imajını temel alıyoruz
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Çalışma dizinini belirliyoruz
 WORKDIR /app
@@ -17,9 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Proje kodlarının geri kalanını kopyalıyoruz
 COPY . .
 
+# Entrypoint betiğine çalıştırma izni veriyoruz
+RUN chmod +x entrypoint.sh
+
 # FastAPI'nin çalışacağı portu dışarıya bildiriyoruz
 EXPOSE 8080
 
-# Konteyner ayağa kalkınca FastAPI'yi Uvicorn ile başlatıyoruz
-# (main.py içindeki app nesnesini hedefliyoruz)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+# Konteyner ayağa kalkarken doğrudan entrypoint çalışacak
+ENTRYPOINT ["./entrypoint.sh"]

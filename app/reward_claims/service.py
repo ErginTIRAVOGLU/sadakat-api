@@ -225,11 +225,11 @@ async def get_reward_claim(
 
 async def use_reward_claim(
     db: AsyncSession,
-    claim_id: UUID,
+    customer_reward_id: UUID,
     business_user: BusinessUser,
 ) -> RewardClaim:
     return await claim_customer_reward(
         db=db,
-        customer_reward_id=claim_id,
+        customer_reward_id=customer_reward_id,
         business_user=business_user,
     )

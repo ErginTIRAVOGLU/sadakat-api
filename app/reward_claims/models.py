@@ -1,11 +1,9 @@
-from __future__ import annotations
-
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
-from uuid import UUID
 
-from sqlalchemy import DateTime, ForeignKey
-from sqlalchemy.dialects.postgresql import ENUM
+from sqlalchemy import DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import RewardClaimStatus
@@ -24,14 +22,22 @@ class RewardClaim(
 ):
     __tablename__ = "reward_claims"
 
-    customer_reward_id: Mapped[UUID] = mapped_column(
-        ForeignKey("customer_rewards.id", ondelete="RESTRICT"),
+    customer_reward_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "customer_rewards.id",
+            ondelete="CASCADE",
+        ),
         nullable=False,
         index=True,
     )
 
-    business_user_id: Mapped[UUID] = mapped_column(
-        ForeignKey("business_users.id", ondelete="RESTRICT"),
+    business_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "business_users.id",
+            ondelete="RESTRICT",
+        ),
         nullable=False,
         index=True,
     )
@@ -42,7 +48,7 @@ class RewardClaim(
             name="reward_claim_status",
             values_callable=lambda enum_class: [
                 item.value for item in enum_class
-            ], 
+            ],
         ),
         nullable=False,
         default=RewardClaimStatus.USED,
@@ -61,4 +67,11 @@ class RewardClaim(
     business_user: Mapped["BusinessUser"] = relationship(
         "BusinessUser",
         back_populates="reward_claims",
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "customer_reward_id",
+            name="uq_reward_claims_customer_reward",
+        ),
     )

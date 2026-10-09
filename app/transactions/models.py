@@ -4,7 +4,7 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import Enum, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import TransactionType
@@ -18,14 +18,14 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "transactions"
 
     user_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
+        UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
 
     business_id: Mapped[UUID | None] = mapped_column(
-        PGUUID(as_uuid=True),
+        UUID(as_uuid=True),
         ForeignKey("businesses.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
@@ -44,7 +44,7 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
 
     reference_id: Mapped[UUID | None] = mapped_column(
-        PGUUID(as_uuid=True),
+        UUID(as_uuid=True),
         nullable=True,
         index=True,
     )

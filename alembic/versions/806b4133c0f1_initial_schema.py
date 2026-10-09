@@ -1,8 +1,8 @@
 """initial schema
 
-Revision ID: 97911fd1c16c
+Revision ID: 806b4133c0f1
 Revises: 
-Create Date: 2026-10-08 12:07:59.793363
+Create Date: 2026-10-08 13:45:30.182238
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '97911fd1c16c'
+revision: str = '806b4133c0f1'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -248,8 +248,9 @@ def upgrade() -> None:
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('deleted_at', sa.DateTime(timezone=True), nullable=True),
     sa.ForeignKeyConstraint(['business_user_id'], ['business_users.id'], ondelete='RESTRICT'),
-    sa.ForeignKeyConstraint(['customer_reward_id'], ['customer_rewards.id'], ondelete='RESTRICT'),
-    sa.PrimaryKeyConstraint('id')
+    sa.ForeignKeyConstraint(['customer_reward_id'], ['customer_rewards.id'], ondelete='CASCADE'),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('customer_reward_id', name='uq_reward_claims_customer_reward')
     )
     op.create_index(op.f('ix_reward_claims_business_user_id'), 'reward_claims', ['business_user_id'], unique=False)
     op.create_index(op.f('ix_reward_claims_customer_reward_id'), 'reward_claims', ['customer_reward_id'], unique=False)

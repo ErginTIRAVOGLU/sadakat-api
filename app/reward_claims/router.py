@@ -119,11 +119,11 @@ async def get_my_reward_claim(
 
 
 @router.post(
-    "/{claim_id}/use",
+    "/{customer_reward_id}/use",
     response_model=RewardClaimResponse,
 )
 async def use_reward_claim_endpoint(
-    claim_id: UUID,
+    customer_reward_id: UUID,
     business_user: BusinessUser = Depends(
         require_business_role(
             BusinessUserRole.OWNER,
@@ -135,8 +135,7 @@ async def use_reward_claim_endpoint(
 ) -> RewardClaimResponse:
     claim = await use_reward_claim(
         db=db,
-        claim_id=claim_id,
+        customer_reward_id=customer_reward_id,
         business_user=business_user,
     )
-
     return RewardClaimResponse.model_validate(claim)

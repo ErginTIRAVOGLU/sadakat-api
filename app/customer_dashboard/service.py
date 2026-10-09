@@ -364,7 +364,8 @@ class CustomerDashboardService:
 
             response.append(
                 DashboardClaimedRewardResponse(
-                    id=customer_reward.id,
+                    id=claim.id,
+                    customer_reward_id=customer_reward.id,
                     campaign_id=campaign.id,
                     campaign_name=campaign.name,
                     business_id=business.id,

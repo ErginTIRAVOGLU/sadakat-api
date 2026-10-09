@@ -70,6 +70,7 @@ class DashboardAvailableRewardResponse(BaseModel):
 
 class DashboardClaimedRewardResponse(BaseModel):
     id: UUID
+    customer_reward_id: UUID
 
     campaign_id: UUID
     campaign_name: str

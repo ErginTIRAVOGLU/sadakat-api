@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import DateTime, ForeignKey, Integer, UniqueConstraint
-from sqlalchemy.dialects.postgresql import ENUM, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import ENUM, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.common.enums import LoyaltyCardStatus
@@ -35,7 +35,7 @@ class LoyaltyCard(
     )
 
     campaign_membership_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
+        UUID(as_uuid=True),
         ForeignKey(
             "campaign_memberships.id",
             ondelete="CASCADE",
