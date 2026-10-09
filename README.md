@@ -49,8 +49,6 @@ sadakat-api/
 │   ├── main.py
 │   └── models.py
 ├── alembic/
-├── migrations/
-├── tests/
 ├── .env2.local
 ├── .gitignore
 ├── Dockerfile
@@ -175,12 +173,7 @@ Uygulama içinde temel sağlık kontrolü ve veritabanı/Redis kontrolleri tanı
 - Tüm endpointler `app/main.py` içinde include edilir.
 
 ## Geliştirme
-
-### Test çalıştırma
-
-```bash
-pytest
-```
+ 
 
 ### Kod formatı ve lint
 
